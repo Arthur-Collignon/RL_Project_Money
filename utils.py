@@ -39,13 +39,11 @@ def calculate_RSI(dataframe):
 def calculate_MACD(dataframe):
     data_MACD = dataframe.copy()
     data_to_export = pd.DataFrame()
-    MME_12 = 12
-    MME_26 = 26
     signal_period = 9
 
     # Calcul des MME
-    fast_MME = data_MACD['close'].ewm(span=MME_12, adjust=False).mean()
-    slow_MME = data_MACD['close'].ewm(span=MME_26, adjust=False).mean()
+    MME_12 = data_MACD['close'].ewm(span=12, adjust=False).mean()
+    MME_26 = data_MACD['close'].ewm(span=26, adjust=False).mean()
 
     # Calcul de la ligne de signal (slow line)
     slow_MACD = MME_12 - MME_26
