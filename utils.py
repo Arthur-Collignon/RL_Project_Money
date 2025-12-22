@@ -4,7 +4,6 @@ import numpy as np
 def calculate_RSI(dataframe):
     data_RSI=dataframe.copy()
     gain_loss_df = pd.DataFrame()
-    data_to_export = pd.DataFrame()
     number_of_periods = 24
     gain_mean = []
     loss_mean = []
@@ -15,8 +14,8 @@ def calculate_RSI(dataframe):
     # Calcul des moyennes mobiles des changements
     for i in range(len(gain_loss_df['change'])):
         if i < number_of_periods:
-            gain_mean.append(np.nan)
-            loss_mean.append(np.nan)
+            gain_mean.append(0.01)
+            loss_mean.append(0.01)
             continue
         elif i == number_of_periods:
             gain_mean.append(gain_loss_df['gain'][:number_of_periods].mean())
@@ -27,18 +26,17 @@ def calculate_RSI(dataframe):
             loss_mean.append(gain_loss_df['loss'][i - number_of_periods:i].mean())
 
     # Calcul du RSI
-    data_to_export['RSI'] = 100 - (100 / (1 + (np.array(gain_mean) / np.array(loss_mean))))
+    dataframe['feature_RSI'] = 100 - (100 / (1 + (np.array(gain_mean) / np.array(loss_mean))))
 
     # Calcul des 0 et 1 quand le RSI est en surachat (>70) ou en survente (<30)
-    data_to_export['RSI_overbought'] = np.where(data_to_export['RSI'] > 70, 1, 0)
-    data_to_export['RSI_oversold'] = np.where(data_to_export['RSI'] < 30, 1, 0)
+    dataframe['feature_RSI_overbought'] = np.where(dataframe['feature_RSI'] > 70, 1, 0)
+    dataframe['feature_RSI_oversold'] = np.where(dataframe['feature_RSI'] < 30, 1, 0)
 
-    return data_to_export
+    return dataframe
 
 
-def calculate_MACD(dataframe):
-    data_MACD = dataframe.copy()
-    data_to_export = pd.DataFrame()
+def calculate_MACD(df):
+    data_MACD = df.copy()
     signal_period = 9
 
     # Calcul des MME
@@ -51,8 +49,8 @@ def calculate_MACD(dataframe):
 
     histogram = slow_MACD - fast_MACD
 
-    data_to_export['fast_line'] = fast_MACD
-    data_to_export['slow_line'] = slow_MACD
-    data_to_export['histogram'] = histogram
+    df['feature_fast_line'] = fast_MACD
+    df['feature_slow_line'] = slow_MACD
+    df['feature_histogram'] = histogram
 
-    return data_to_export
+    return df
