@@ -2,15 +2,15 @@
 
 Ce projet explore l'application du Deep Reinforcement Learning (DRL) au trading algorithmique. L'objectif était de concevoir un agent capable de gérer le risque et de générer de l'Alpha sur des données financières réelles.
 
-## Suivi des Expérimentations (WandB)
+## Liens du Projet
 
-L'ensemble des logs d'entraînement, courbes de reward, pertes et métriques de performance de toutes les itérations sont accessibles via le dashboard Weights & Biases :
-
-**[Voir le Dashboard WandB du Projet](https://wandb.ai/thomas-derville-cpe-lyon/RL-Trading-Project?nw=nwuserarthurcollignon)**
+* **Code Source (GitHub) :** [https://github.com/Arthur-Collignon/RL_Project_Money](https://github.com/Arthur-Collignon/RL_Project_Money)
+* **Suivi des Expériences (WandB) :** [Dashboard Weights & Biases](https://wandb.ai/thomas-derville-cpe-lyon/RL-Trading-Project?nw=nwuserarthurcollignon)
+  *(Contient l'historique des courbes de reward, pertes et métriques de tous les modèles testés)*
 
 ## Organisation du Code
 
-La démarche scientifique et le résultat final sont séparés en deux fichiers distincts :
+La démarche scientifique et le résultat final sont séparés en deux fichiers principaux :
 
 * **`project.ipynb` : Historique et Réflexion**
     * Ce notebook contient **le détail de la réflexion** et l'intégralité du processus de R&D.
