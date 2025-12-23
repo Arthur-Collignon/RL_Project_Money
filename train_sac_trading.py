@@ -14,9 +14,11 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
 import gymnasium as gym
+from gymnasium import spaces
+
 import wandb
 
-# IMPORTANT: registre l'env "MultiDatasetTradingEnv"
+# IMPORTANT: enregistre l'env "MultiDatasetTradingEnv"
 import gym_trading_env  # noqa: F401
 
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
@@ -24,17 +26,19 @@ from stable_baselines3.common.callbacks import EvalCallback, CallbackList
 
 
 # ============================================================
-# Import FACTORY (adapte automatiquement au nom du fichier)
+# Import FACTORY (auto)
 # ============================================================
 
 from model_factory import available_algorithms, model_choice, SB3Config  # type: ignore
 
+
 # ============================================================
-# Config "projet" (data/env/eval)
+# Project config
 # ============================================================
 
 @dataclass
 class ProjectConfig:
+    # Data
     data_dir: str = "data"
     seed: int = 0
     split_seed: int = 0
@@ -42,24 +46,25 @@ class ProjectConfig:
     min_test_files: int = 2
     min_rows_after_preprocess: int = 300
 
-    # Env params
+    # Env
     portfolio_initial_value: float = 1000.0
     trading_fees: float = 0.1 / 100
     borrow_interest_rate: float = 0.02 / 100 / 24
     position_range: Tuple[float, float] = (0.0, 1.0)
 
-    # VecNormalize
+    # Vec / Normalize
+    n_envs: int = 1  # DummyVecEnv (Windows). Tu peux mettre 4.
     norm_obs: bool = True
     norm_reward: bool = True
     clip_obs: float = 10.0
 
-    # Vector env count (DummyVecEnv pour Windows)
-    n_envs: int = 1
-
     # Eval
     n_eval_episodes: int = 5
     eval_seed_base: int = 12345
-    eval_freq: int = 10_000  # pour EvalCallback (courbes eval/)
+    eval_freq: int = 10_000
+
+    # Output
+    out_dir: str = "models"
 
     # W&B
     wandb_project: str = "rl-trading-env"
@@ -67,12 +72,9 @@ class ProjectConfig:
     wandb_group: str = "bench_all_algos"
     wandb_sync_tensorboard: bool = True
 
-    # Output
-    out_dir: str = "models"
-
 
 # ============================================================
-# Preprocess (simple + robuste)
+# Preprocess (robuste + RSI/MACD)
 # ============================================================
 
 def _rsi(close: pd.Series, period: int = 14) -> pd.Series:
@@ -93,7 +95,6 @@ def preprocess_df(df: pd.DataFrame) -> pd.DataFrame:
 
     df["close"] = pd.to_numeric(df["close"], errors="coerce").ffill().bfill()
     df = df.dropna(subset=["close"])
-
     close = df["close"].astype(float)
 
     df["feature_log_return"] = np.log(close).diff()
@@ -186,6 +187,119 @@ def split_after_preprocess(cfg: ProjectConfig) -> Tuple[str, str, List[str], Lis
 
 
 # ============================================================
+# Metrics helpers (robustes)
+# ============================================================
+
+def hget(history: Any, key: str, idx: int) -> Optional[float]:
+    # format history["portfolio_valuation", -1]
+    try:
+        return float(history[key, idx])
+    except Exception:
+        pass
+    # pandas
+    try:
+        if hasattr(history, "columns") and key in history.columns:
+            return float(history[key].iloc[idx])
+    except Exception:
+        pass
+    # dict of arrays/lists
+    try:
+        if isinstance(history, dict) and key in history:
+            v = history[key]
+            if isinstance(v, (list, tuple, np.ndarray, pd.Series)):
+                return float(v[idx])
+    except Exception:
+        pass
+    # list of dicts
+    try:
+        if isinstance(history, list) and history and isinstance(history[0], dict):
+            return float(history[idx].get(key))
+    except Exception:
+        pass
+    return None
+
+
+def add_metrics_if_possible(env: gym.Env) -> None:
+    """
+    Ajoute "Market Return" et "Portfolio Return" si env.add_metric existe.
+    """
+    if not hasattr(env, "add_metric"):
+        return
+
+    def portfolio_return(history: Any) -> float:
+        pv0 = hget(history, "portfolio_valuation", 0)
+        pv1 = hget(history, "portfolio_valuation", -1)
+        if pv0 is None or pv1 is None or pv0 == 0:
+            return float("nan")
+        return float(pv1 / pv0 - 1.0)
+
+    def market_return(history: Any) -> float:
+        for key in ["close", "price"]:
+            p0 = hget(history, key, 0)
+            p1 = hget(history, key, -1)
+            if p0 is not None and p1 is not None and p0 != 0:
+                return float(p1 / p0 - 1.0)
+        return float("nan")
+
+    def portfolio_valuation(history: Any) -> float:
+        pv1 = hget(history, "portfolio_valuation", -1)
+        return float("nan") if pv1 is None else float(pv1)
+
+    env.add_metric("Portfolio Valuation", portfolio_valuation)
+
+
+def unwrap_base_env(vec_env) -> Optional[gym.Env]:
+    """
+    Récupère l'env gym sous-jacent depuis VecNormalize/VecMonitor/DummyVecEnv.
+    """
+    cur = vec_env
+    for _ in range(6):
+        if hasattr(cur, "venv"):
+            cur = cur.venv
+            continue
+        if hasattr(cur, "envs") and cur.envs:
+            e = cur.envs[0]
+            try:
+                return e.unwrapped
+            except Exception:
+                return e
+        break
+    return None
+
+
+def get_returns_from_vec_env(vec_env) -> Dict[str, float]:
+    base = unwrap_base_env(vec_env)
+    if base is None or not hasattr(base, "get_metrics"):
+        return {}
+
+    try:
+        m = base.get_metrics()
+        if not isinstance(m, dict):
+            return {}
+
+        def to_float(x):
+            # gère float, int, ou string "25.30%"
+            if isinstance(x, (float, int, np.floating, np.integer)):
+                return float(x)
+            if isinstance(x, str):
+                s = x.strip().replace("%", "")
+                return float(s) / 100.0 if "%" in x else float(s)
+            return float("nan")
+
+        out = {}
+        if "Market Return" in m:
+            out["market_return"] = to_float(m["Market Return"])
+        if "Portfolio Return" in m:
+            out["portfolio_return"] = to_float(m["Portfolio Return"])
+        if "Portfolio Valuation" in m:
+            out["portfolio_valuation"] = to_float(m["Portfolio Valuation"])
+        return out
+    except Exception:
+        return {}
+
+
+
+# ============================================================
 # Env builders
 # ============================================================
 
@@ -193,12 +307,13 @@ def make_base_env(dataset_pattern: str, pcfg: ProjectConfig) -> gym.Env:
     env = gym.make(
         "MultiDatasetTradingEnv",
         dataset_dir=dataset_pattern,
-        preprocess=lambda df: df,  # déjà préprocessé/caché
+        preprocess=lambda df: df,  # déjà préprocessé
         portfolio_initial_value=pcfg.portfolio_initial_value,
         trading_fees=pcfg.trading_fees,
         borrow_interest_rate=pcfg.borrow_interest_rate,
         position_range=pcfg.position_range,
     )
+    add_metrics_if_possible(env)
     return env
 
 
@@ -211,9 +326,9 @@ def make_vec_env(
     discrete_positions: Optional[List[float]] = None,
 ) -> VecNormalize:
     """
-    - DummyVecEnv (stable sur Windows)
-    - VecNormalize obs (et reward uniquement en training)
-    - optionnel: DiscreteActionsWrapper pour DQN/QRDQN
+    - DummyVecEnv: stable Windows
+    - VecMonitor + VecNormalize
+    - optional DiscreteActionsWrapper pour DQN/QRDQN
     """
     def make_one():
         e = make_base_env(dataset_pattern, pcfg)
@@ -237,7 +352,6 @@ def make_vec_env(
     if obs_rms is not None:
         venv.obs_rms = obs_rms
 
-    # seed stable
     try:
         venv.seed(pcfg.seed)
     except Exception:
@@ -247,109 +361,134 @@ def make_vec_env(
 
 
 # ============================================================
-# Evaluation (portfolio final) sur VecEnv
+# Action helpers for VecEnv
 # ============================================================
 
-def eval_mean_final_portfolio(vec_env: VecNormalize, act_fn, n_episodes: int, seed: int) -> float:
-    finals: List[float] = []
+def vec_random_action(vec_env) -> np.ndarray:
+    space = vec_env.action_space
+    n = vec_env.num_envs
+    if isinstance(space, spaces.Discrete):
+        return np.array([space.sample() for _ in range(n)], dtype=np.int64)
+    a = space.sample()
+    a = np.array(a, dtype=np.float32)
+    return np.repeat(a[None, ...], n, axis=0)
+
+
+def vec_buyhold_action(vec_env, *, discrete_positions: Optional[List[float]] = None) -> np.ndarray:
+    space = vec_env.action_space
+    n = vec_env.num_envs
+    if isinstance(space, spaces.Discrete):
+        # last index = position max (si wrapper discret)
+        return np.array([len(discrete_positions) - 1] * n, dtype=np.int64)  # type: ignore[arg-type]
+    # Box: 100% investi
+    shape = (n,) + space.shape
+    return np.ones(shape, dtype=np.float32)
+
+
+# ============================================================
+# Evaluation: run episodes then read Market/Portfolio Return
+# ============================================================
+
+def run_episodes_and_collect_returns(
+    vec_env,
+    act_fn,
+    n_episodes: int,
+    seed_base: int,
+) -> Dict[str, float]:
+    mkt: List[float] = []
+    port: List[float] = []
+    val: List[float] = []
 
     for ep in range(n_episodes):
         try:
-            vec_env.seed(seed + ep)
+            vec_env.seed(seed_base + ep)
         except Exception:
             pass
 
         obs = vec_env.reset()
         done = False
-        last_val = None
 
         while not done:
             action = act_fn(obs)
             obs, rewards, dones, infos = vec_env.step(action)
             done = bool(dones[0])
 
-            # tentative 1: info direct
-            if infos and isinstance(infos[0], dict) and "portfolio_valuation" in infos[0]:
-                try:
-                    last_val = float(infos[0]["portfolio_valuation"])
-                except Exception:
-                    pass
+        r = get_returns_from_vec_env(vec_env)
+        if "market_return" in r and np.isfinite(r["market_return"]):
+            mkt.append(r["market_return"])
+        if "portfolio_return" in r and np.isfinite(r["portfolio_return"]):
+            port.append(r["portfolio_return"])
+        if "portfolio_valuation" in r and np.isfinite(r["portfolio_valuation"]):
+            val.append(r["portfolio_valuation"])
 
-        # fallback 2: metrics de l'env (projet.ipynb)
-        if last_val is None:
-            try:
-                get_metrics = vec_env.get_attr("get_metrics")[0]
-                metrics = get_metrics()
-                # Selon env: "Portfolio Valuation" ou autre
-                if isinstance(metrics, dict):
-                    for k in ["Portfolio Valuation", "portfolio_valuation"]:
-                        if k in metrics:
-                            last_val = float(metrics[k])
-                            break
-            except Exception:
-                pass
+    def mean_or_nan(x: List[float]) -> float:
+        return float(np.mean(x)) if x else float("nan")
 
-        # fallback 3: historical_info
-        if last_val is None:
-            try:
-                hist = vec_env.get_attr("historical_info")[0]
-                # hist peut être list[dict] ou DataFrame
-                if isinstance(hist, list) and hist and isinstance(hist[-1], dict) and "portfolio_valuation" in hist[-1]:
-                    last_val = float(hist[-1]["portfolio_valuation"])
-                elif hasattr(hist, "columns") and "portfolio_valuation" in hist.columns:
-                    last_val = float(hist["portfolio_valuation"].iloc[-1])
-            except Exception:
-                pass
+    def std_or_nan(x: List[float]) -> float:
+        return float(np.std(x)) if x else float("nan")
 
-        if last_val is not None and np.isfinite(last_val):
-            finals.append(last_val)
-
-    return float(np.mean(finals)) if finals else float("nan")
+    return {
+        "market_return_mean": mean_or_nan(mkt),
+        "market_return_std": std_or_nan(mkt),
+        "portfolio_return_mean": mean_or_nan(port),
+        "portfolio_return_std": std_or_nan(port),
+        "portfolio_valuation_mean": mean_or_nan(val),
+        "portfolio_valuation_std": std_or_nan(val),
+    }
 
 
 # ============================================================
-# Hyperparams par algo (précis)
+# Hyperparams précis par algo
 # ============================================================
 
 def algo_hyperparams() -> Dict[str, Dict[str, Any]]:
-    """
-    Tu peux modifier ici et relancer.
-    """
     return {
-        # On-policy (actions Box ou Discrete)
-        "ppo": dict(total_timesteps=30_000, learning_rate=3e-4, n_steps=2048, batch_size=256,
-                    n_epochs=10, ent_coef=0.01, vf_coef=2.0, gae_lambda=0.95, clip_range=0.2, target_kl=0.02),
-        "a2c": dict(total_timesteps=30_000, learning_rate=7e-4, n_steps=128, ent_coef=0.0, vf_coef=1.0, gae_lambda=0.95),
-
-        # Off-policy continuous
-        "sac": dict(total_timesteps=40_000, learning_rate=3e-4, buffer_size=300_000, batch_size=256,
-                    learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1,
-                    extra={"sac": {"ent_coef": "auto"}}),
-        "td3": dict(total_timesteps=40_000, learning_rate=1e-3, buffer_size=300_000, batch_size=256,
-                    learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1),
-        "ddpg": dict(total_timesteps=40_000, learning_rate=1e-3, buffer_size=300_000, batch_size=256,
-                     learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1),
-
-        # Discrete only
-        "dqn": dict(total_timesteps=40_000, learning_rate=1e-4, buffer_size=200_000, batch_size=64,
-                    learning_starts=5_000, train_freq=4, gradient_steps=1,
-                    exploration_fraction=0.2, exploration_final_eps=0.02),
-
+        "ppo": dict(
+            total_timesteps=30_000, learning_rate=3e-4, n_steps=2048, batch_size=256,
+            n_epochs=10, ent_coef=0.01, vf_coef=2.0, gae_lambda=0.95, clip_range=0.2, target_kl=0.02
+        ),
+        "a2c": dict(
+            total_timesteps=30_000, learning_rate=7e-4, n_steps=128, ent_coef=0.0, vf_coef=1.0, gae_lambda=0.95
+        ),
+        "sac": dict(
+            total_timesteps=40_000, learning_rate=3e-4, buffer_size=300_000, batch_size=256,
+            learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1,
+            extra={"sac": {"ent_coef": "auto"}},
+        ),
+        "td3": dict(
+            total_timesteps=40_000, learning_rate=1e-3, buffer_size=300_000, batch_size=256,
+            learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1
+        ),
+        "ddpg": dict(
+            total_timesteps=40_000, learning_rate=1e-3, buffer_size=300_000, batch_size=256,
+            learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1
+        ),
+        "dqn": dict(
+            total_timesteps=40_000, learning_rate=1e-4, buffer_size=200_000, batch_size=64,
+            learning_starts=5_000, train_freq=4, gradient_steps=1,
+            exploration_fraction=0.2, exploration_final_eps=0.02
+        ),
         # Contrib (si présent)
         "trpo": dict(total_timesteps=30_000, learning_rate=3e-4),
         "recurrentppo": dict(total_timesteps=30_000, learning_rate=3e-4),
-        "qrdqn": dict(total_timesteps=40_000, learning_rate=1e-4, buffer_size=200_000, batch_size=64,
-                      learning_starts=5_000, train_freq=4, gradient_steps=1),
-        "tqc": dict(total_timesteps=40_000, learning_rate=3e-4, buffer_size=300_000, batch_size=256,
-                    learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1),
-        "crossq": dict(total_timesteps=40_000, learning_rate=3e-4, buffer_size=300_000, batch_size=256,
-                       learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1),
+        "qrdqn": dict(
+            total_timesteps=40_000, learning_rate=1e-4, buffer_size=200_000, batch_size=64,
+            learning_starts=5_000, train_freq=4, gradient_steps=1
+        ),
+        "tqc": dict(
+            total_timesteps=40_000, learning_rate=3e-4, buffer_size=300_000, batch_size=256,
+            learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1
+        ),
+        "crossq": dict(
+            total_timesteps=40_000, learning_rate=3e-4, buffer_size=300_000, batch_size=256,
+            learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1
+        ),
         "ars": dict(total_timesteps=40_000, learning_rate=3e-4),
     }
 
 
 # ============================================================
-# Main benchmark + W&B
+# Main
 # ============================================================
 
 def main():
@@ -361,15 +500,15 @@ def main():
         min_test_files=2,
         min_rows_after_preprocess=300,
         position_range=(0.0, 1.0),
-        n_envs=1,  # monte à 4 si tu veux, mais garde DummyVecEnv
+        n_envs=1,
         eval_freq=10_000,
         n_eval_episodes=5,
         eval_seed_base=12345,
+        out_dir="models",
         wandb_project="rl-trading-env",
-        wandb_entity=None,  # "lafuethibaut-cpe-lyon" si tu veux forcer
+        wandb_entity=None,
         wandb_group="bench_all_algos",
         wandb_sync_tensorboard=True,
-        out_dir="models",
     )
 
     print("[project config]")
@@ -378,17 +517,16 @@ def main():
 
     train_glob, test_glob, train_files, test_files = split_after_preprocess(pcfg)
 
-    # algos installés via factory
     algos_map = available_algorithms(include_contrib=True)
     installed_algos = sorted(algos_map.keys())
     print(f"[algos installed] {installed_algos}")
 
     hp_map = algo_hyperparams()
 
-    # positions discrètes pour DQN/QRDQN
+    # Pour DQN/QRDQN
     discrete_positions = [0.0, 0.25, 0.5, 0.75, 1.0]
 
-    results: List[Dict[str, Any]] = []
+    results_rows: List[Dict[str, Any]] = []
 
     for algo in installed_algos:
         if algo not in hp_map:
@@ -403,7 +541,6 @@ def main():
         eval_env = None
 
         try:
-            # W&B run
             run = wandb.init(
                 project=pcfg.wandb_project,
                 entity=pcfg.wandb_entity,
@@ -420,14 +557,16 @@ def main():
                 sync_tensorboard=pcfg.wandb_sync_tensorboard,
             )
 
-            # TensorBoard dir (pour courbes rollout/train/eval)
+            # pour bien tracer test/*
+            wandb.define_metric("global_step")
+            wandb.define_metric("test/*", step_metric="global_step")
+
             tb_dir = os.path.join(pcfg.out_dir, "tb", run.id)
             Path(tb_dir).mkdir(parents=True, exist_ok=True)
 
             print(f"\n===== {algo.upper()} =====")
             print(f"[wandb] {run.url}")
 
-            # envs
             train_env = make_vec_env(
                 train_glob, pcfg, training=True,
                 discrete_positions=discrete_positions if needs_discrete else None,
@@ -438,21 +577,18 @@ def main():
                 discrete_positions=discrete_positions if needs_discrete else None,
             )
 
-            # callbacks (eval -> log eval/* dans TB, donc sync vers W&B)
+            # EvalCallback -> courbes eval/* (TensorBoard)
             callbacks = []
             if pcfg.eval_freq and pcfg.eval_freq > 0:
-                eval_cb = EvalCallback(
+                callbacks.append(EvalCallback(
                     eval_env,
                     eval_freq=pcfg.eval_freq,
                     n_eval_episodes=pcfg.n_eval_episodes,
                     deterministic=True,
                     verbose=0,
-                )
-                callbacks.append(eval_cb)
-
+                ))
             callback = CallbackList(callbacks) if callbacks else None
 
-            # config SB3 (factory)
             cfg = SB3Config(
                 seed=pcfg.seed,
                 device="cpu",
@@ -486,45 +622,75 @@ def main():
                 extra=hp.get("extra", None),
             )
 
-            # build model + train
             model = model_choice(algo, cfg, train_env)
             model.learn(total_timesteps=cfg.total_timesteps, callback=callback)
 
-            # Eval: random / buy&hold / agent
-            if needs_discrete:
-                def random_act(_obs):
-                    return np.array([eval_env.action_space.sample()])
+            step = int(getattr(model, "num_timesteps", cfg.total_timesteps))
 
-                def buyhold_act(_obs):
-                    return np.array([len(discrete_positions) - 1])
+            # --- Random
+            random_returns = run_episodes_and_collect_returns(
+                eval_env,
+                act_fn=lambda obs: vec_random_action(eval_env),
+                n_episodes=pcfg.n_eval_episodes,
+                seed_base=pcfg.eval_seed_base + 1000,
+            )
 
-            else:
-                def random_act(_obs):
-                    return np.array([eval_env.action_space.sample()])
+            # --- Buy&Hold
+            buyhold_returns = run_episodes_and_collect_returns(
+                eval_env,
+                act_fn=lambda obs: vec_buyhold_action(eval_env, discrete_positions=discrete_positions if needs_discrete else None),
+                n_episodes=pcfg.n_eval_episodes,
+                seed_base=pcfg.eval_seed_base + 2000,
+            )
 
-                def buyhold_act(_obs):
-                    return np.array([[1.0]], dtype=np.float32)
-
+            # --- Agent
             def agent_act(obs):
                 a, _ = model.predict(obs, deterministic=True)
                 return a
 
-            rnd = eval_mean_final_portfolio(eval_env, random_act, pcfg.n_eval_episodes, pcfg.eval_seed_base + 1000)
-            bh = eval_mean_final_portfolio(eval_env, buyhold_act, pcfg.n_eval_episodes, pcfg.eval_seed_base + 2000)
-            ag = eval_mean_final_portfolio(eval_env, agent_act, pcfg.n_eval_episodes, pcfg.eval_seed_base + 3000)
+            agent_returns = run_episodes_and_collect_returns(
+                eval_env,
+                act_fn=agent_act,
+                n_episodes=pcfg.n_eval_episodes,
+                seed_base=pcfg.eval_seed_base + 3000,
+            )
 
-            diff = (ag - bh) if np.isfinite(ag) and np.isfinite(bh) else float("nan")
+            # Affichage console (Market/Portfolio Return)
+            mr = agent_returns["market_return_mean"]
+            pr = agent_returns["portfolio_return_mean"]
+            print(f"[agent] Market Return={mr*100:.2f}% | Portfolio Return={pr*100:.2f}%")
 
-            # log W&B
-            wandb.log({
-                "eval/random_mean_final": rnd,
-                "eval/buyhold_mean_final": bh,
-                "eval/agent_mean_final": ag,
-                "eval/agent_minus_buyhold": diff,
-            })
-            wandb.run.summary["eval/agent_minus_buyhold"] = diff
+            # Log W&B
+            wandb.log(
+                {
+                    "global_step": step,
 
-            # save model + normalizer
+                    "test/random/market_return_mean": random_returns["market_return_mean"],
+                    "test/random/portfolio_return_mean": random_returns["portfolio_return_mean"],
+
+                    "test/buyhold/market_return_mean": buyhold_returns["market_return_mean"],
+                    "test/buyhold/portfolio_return_mean": buyhold_returns["portfolio_return_mean"],
+
+                    "test/agent/market_return_mean": agent_returns["market_return_mean"],
+                    "test/agent/portfolio_return_mean": agent_returns["portfolio_return_mean"],
+
+                    "test/agent/portfolio_valuation_mean": agent_returns["portfolio_valuation_mean"],
+                    "test/agent_minus_buyhold/portfolio_return": (
+                        agent_returns["portfolio_return_mean"] - buyhold_returns["portfolio_return_mean"]
+                        if np.isfinite(agent_returns["portfolio_return_mean"]) and np.isfinite(buyhold_returns["portfolio_return_mean"])
+                        else float("nan")
+                    ),
+                },
+                step=step,
+            )
+
+            # Summary (toujours visible)
+            wandb.run.summary["test/agent/market_return_mean"] = agent_returns["market_return_mean"]
+            wandb.run.summary["test/agent/portfolio_return_mean"] = agent_returns["portfolio_return_mean"]
+            wandb.run.summary["test/buyhold/portfolio_return_mean"] = buyhold_returns["portfolio_return_mean"]
+            wandb.run.summary["test/random/portfolio_return_mean"] = random_returns["portfolio_return_mean"]
+
+            # Save model + normalizer
             out_algo_dir = os.path.join(pcfg.out_dir, "bench_models", algo)
             Path(out_algo_dir).mkdir(parents=True, exist_ok=True)
             model_path = os.path.join(out_algo_dir, f"{algo}_{run.id}")
@@ -539,15 +705,12 @@ def main():
             wandb.run.summary["saved/model"] = model_path + ".zip"
             wandb.run.summary["saved/vecnormalize"] = norm_path
 
-            # console
-            print(f"[eval] random={rnd:.2f} | buyhold={bh:.2f} | agent={ag:.2f} | agent-bh={diff:.2f}")
-
-            results.append({
+            results_rows.append({
                 "algo": algo,
-                "random_mean_final": rnd,
-                "buyhold_mean_final": bh,
-                "agent_mean_final": ag,
-                "agent_minus_buyhold": diff,
+                "agent_portfolio_return_mean": agent_returns["portfolio_return_mean"],
+                "agent_market_return_mean": agent_returns["market_return_mean"],
+                "buyhold_portfolio_return_mean": buyhold_returns["portfolio_return_mean"],
+                "random_portfolio_return_mean": random_returns["portfolio_return_mean"],
             })
 
         except Exception as e:
@@ -571,22 +734,9 @@ def main():
             except Exception:
                 pass
 
-    # ranking final (console + csv)
-    results_sorted = sorted(
-        results,
-        key=lambda r: (r["agent_minus_buyhold"] if np.isfinite(r["agent_minus_buyhold"]) else -1e18),
-        reverse=True,
-    )
-
-    print("\n===== RANKING (agent_minus_buyhold) =====")
-    for r in results_sorted:
-        print(
-            f"{r['algo']:>12} | agent={r['agent_mean_final']:.2f} | "
-            f"bh={r['buyhold_mean_final']:.2f} | diff={r['agent_minus_buyhold']:.2f}"
-        )
-
-    out_csv = "algo_benchmark_results.csv"
-    pd.DataFrame(results_sorted).to_csv(out_csv, index=False)
+    # CSV résumé
+    out_csv = "algo_benchmark_returns.csv"
+    pd.DataFrame(results_rows).to_csv(out_csv, index=False)
     print(f"\n[saved] {out_csv}")
 
 
