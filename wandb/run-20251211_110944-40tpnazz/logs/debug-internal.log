@@ -1,0 +1,17 @@
+{"time":"2025-12-11T11:09:47.2114407+01:00","level":"INFO","msg":"stream: starting","core version":"0.23.1"}
+{"time":"2025-12-11T11:09:47.5086931+01:00","level":"INFO","msg":"stream: created new stream","id":"40tpnazz"}
+{"time":"2025-12-11T11:09:47.5091976+01:00","level":"INFO","msg":"handler: started","stream_id":"40tpnazz"}
+{"time":"2025-12-11T11:09:47.5097173+01:00","level":"INFO","msg":"stream: started","id":"40tpnazz"}
+{"time":"2025-12-11T11:09:47.5097173+01:00","level":"INFO","msg":"writer: started","stream_id":"40tpnazz"}
+{"time":"2025-12-11T11:09:47.5097173+01:00","level":"INFO","msg":"sender: started","stream_id":"40tpnazz"}
+{"time":"2025-12-11T11:09:47.9127296+01:00","level":"ERROR","msg":"error getting latest commit","error":"exit status 128"}
+{"time":"2025-12-11T11:09:58.2601523+01:00","level":"WARN","msg":"tensorboard: no root directory","error":"timed out after 10s"}
+{"time":"2025-12-11T11:09:58.2601523+01:00","level":"INFO","msg":"tensorboard: tracking new log directory","rootDir":{},"logDir":"LocalOrCloudPath(LocalPath=\"C:\\\\Users\\\\arthu\\\\Work\\\\CPE\\\\S9\\\\ReinforcementLearning\\\\Projet\\\\runs\\\\40tpnazz\\\\RecurrentPPO_1\")","namespace":""}
+{"time":"2025-12-11T11:09:58.2606558+01:00","level":"INFO","msg":"tensorboard: saving file","fileLocation":"C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\runs\\40tpnazz\\RecurrentPPO_1\\events.out.tfevents.1765447788.Pac_Computer.32564.2","runPath":"runs/40tpnazz/RecurrentPPO_1/events.out.tfevents.1765447788.Pac_Computer.32564.2"}
+{"time":"2025-12-11T11:09:58.2638401+01:00","level":"ERROR","msg":"tensorboard: error creating symlink","target":"C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\runs\\40tpnazz\\RecurrentPPO_1\\events.out.tfevents.1765447788.Pac_Computer.32564.2","symlink":"C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\wandb\\run-20251211_110944-40tpnazz\\files\\runs\\40tpnazz\\RecurrentPPO_1\\events.out.tfevents.1765447788.Pac_Computer.32564.2","error":"symlink C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\runs\\40tpnazz\\RecurrentPPO_1\\events.out.tfevents.1765447788.Pac_Computer.32564.2 C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\wandb\\run-20251211_110944-40tpnazz\\files\\runs\\40tpnazz\\RecurrentPPO_1\\events.out.tfevents.1765447788.Pac_Computer.32564.2: A required privilege is not held by the client."}
+{"time":"2025-12-11T11:12:31.1398601+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-12-11T11:12:31.4006589+01:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2025-12-11T11:12:31.4111254+01:00","level":"INFO","msg":"stream: closing","id":"40tpnazz"}
+{"time":"2025-12-11T11:12:31.4111254+01:00","level":"INFO","msg":"handler: closed","stream_id":"40tpnazz"}
+{"time":"2025-12-11T11:12:31.4111254+01:00","level":"INFO","msg":"sender: closed","stream_id":"40tpnazz"}
+{"time":"2025-12-11T11:12:31.4111254+01:00","level":"INFO","msg":"stream: closed","id":"40tpnazz"}

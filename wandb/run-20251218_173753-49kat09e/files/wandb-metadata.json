@@ -1,0 +1,28 @@
+{
+  "os":  "Windows-11-10.0.26200-SP0",
+  "python":  "CPython 3.13.7",
+  "startedAt":  "2025-12-18T16:37:53.253833Z",
+  "program":  "projet.ipynb",
+  "codePath":  "projet.ipynb",
+  "codePathLocal":  "projet.ipynb",
+  "git":  {
+    "remote":  "https://github.com/Arthur-Collignon/RL_Project_Money.git",
+    "commit":  "86871490dd142cc71553dc3d20e7be341900ce25"
+  },
+  "email":  "arthur.collignon@cpe.fr",
+  "root":  "C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet",
+  "host":  "Pac_Computer",
+  "executable":  "C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\.venv\\Scripts\\python.exe",
+  "cpu_count":  12,
+  "cpu_count_logical":  16,
+  "disk":  {
+    "/":  {
+      "total":  "1002443894784",
+      "used":  "754102480896"
+    }
+  },
+  "memory":  {
+    "total":  "16848695296"
+  },
+  "writerId":  "xk6xwrg08bnpvbnf14wt14wztqfagh8y"
+}
