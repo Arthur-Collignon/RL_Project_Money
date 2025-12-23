@@ -7,273 +7,72 @@ import os
 import glob
 import random
 import shutil
-from copy import deepcopy
 from dataclasses import dataclass, asdict
 from pathlib import Path
-from typing import Callable, Dict, List, Optional, Tuple, Any
+from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import pandas as pd
 import gymnasium as gym
-
 import wandb
-from wandb.integration.sb3 import WandbCallback
 
-# IMPORTANT: nécessaire pour enregistrer l'env "MultiDatasetTradingEnv"
+# IMPORTANT: registre l'env "MultiDatasetTradingEnv"
 import gym_trading_env  # noqa: F401
 
-from stable_baselines3 import PPO
 from stable_baselines3.common.vec_env import DummyVecEnv, VecMonitor, VecNormalize
 from stable_baselines3.common.callbacks import EvalCallback, CallbackList
 
 
 # ============================================================
-# Config
+# Import FACTORY (adapte automatiquement au nom du fichier)
+# ============================================================
+
+from model_factory import available_algorithms, model_choice, SB3Config  # type: ignore
+
+# ============================================================
+# Config "projet" (data/env/eval)
 # ============================================================
 
 @dataclass
-class ExperimentConfig:
-    # Data
+class ProjectConfig:
     data_dir: str = "data"
     seed: int = 0
-
-    # Split fixé => runs comparables
     split_seed: int = 0
     test_ratio: float = 0.35
-    min_rows_after_preprocess: int = 300
     min_test_files: int = 2
+    min_rows_after_preprocess: int = 300
 
-    # Env
+    # Env params
     portfolio_initial_value: float = 1000.0
     trading_fees: float = 0.1 / 100
     borrow_interest_rate: float = 0.02 / 100 / 24
-    position_range: Tuple[float, float] = (0.0, 1.0)  # long-only
-    # si l'énoncé le permet, teste (-1, 1) pour battre buy&hold en bull market :
-    # position_range: Tuple[float, float] = (-1.0, 1.0)
-
-    # Reward shaping (inspiré du projet.ipynb)
-    # - "default": reward interne env
-    # - "log_return": log(V_t/V_{t-1})
-    # - "alpha_log_return": log(V_t/V_{t-1}) - log(P_t/P_{t-1})
-    reward_mode: str = "alpha_log_return"
-
-    # Actions discrètes (inspiré du projet.ipynb)
-    use_discrete_actions: bool = False
-    discrete_positions: Tuple[float, ...] = (-1.0, -0.5, 0.0, 0.25, 0.5, 0.75, 1.0)
-
-    # Anti-overtrading
-    turnover_lambda: float = 1e-3
+    position_range: Tuple[float, float] = (0.0, 1.0)
 
     # VecNormalize
-    n_envs: int = 4
     norm_obs: bool = True
     norm_reward: bool = True
     clip_obs: float = 10.0
 
-    # Train
-    total_timesteps: int = 100_000
-    eval_freq: int = 10_000
+    # Vector env count (DummyVecEnv pour Windows)
+    n_envs: int = 1
+
+    # Eval
     n_eval_episodes: int = 5
-    model_dir: str = "models"
-
-    # PPO
-    learning_rate: float = 3e-4
-    n_steps: int = 2048
-    batch_size: int = 256
-    n_epochs: int = 10
-    gamma: float = 0.99
-    gae_lambda: float = 0.95
-    clip_range: float = 0.2
-    ent_coef: float = 0.01
-    vf_coef: float = 1.0
-    max_grad_norm: float = 0.5
-    target_kl: Optional[float] = 0.02
-
-    # Policy
-    net_arch_pi: Tuple[int, int] = (256, 256)
-    net_arch_vf: Tuple[int, int] = (256, 256)
-
-    # Eval seeds FIXES (comparabilité)
     eval_seed_base: int = 12345
-    deterministic_eval: bool = True
+    eval_freq: int = 10_000  # pour EvalCallback (courbes eval/)
 
     # W&B
     wandb_project: str = "rl-trading-env"
     wandb_entity: Optional[str] = None
+    wandb_group: str = "bench_all_algos"
     wandb_sync_tensorboard: bool = True
 
-
-# ============================================================
-# Wrapper anti-overtrading
-# ============================================================
-
-class TurnoverPenaltyWrapper(gym.Wrapper):
-    """
-    reward' = reward - lam * mean(|a_t - a_{t-1}|)
-    Important: appliquer AVANT DiscreteActionsWrapper, pour pénaliser la position réelle.
-    """
-    def __init__(self, env: gym.Env, lam: float = 1e-3):
-        super().__init__(env)
-        self.lam = float(lam)
-        self.prev_action: Optional[np.ndarray] = None
-
-    def reset(self, **kwargs):
-        obs, info = self.env.reset(**kwargs)
-        # action continue attendue (Box)
-        self.prev_action = np.zeros(self.action_space.shape, dtype=np.float32)
-        return obs, info
-
-    def step(self, action):
-        obs, reward, terminated, truncated, info = self.env.step(action)
-        a = np.array(action, dtype=np.float32)
-        if self.prev_action is None:
-            self.prev_action = np.zeros_like(a)
-
-        penalty = self.lam * float(np.abs(a - self.prev_action).mean())
-        self.prev_action = a
-
-        info = dict(info)
-        info["turnover_penalty"] = penalty
-        return obs, reward - penalty, terminated, truncated, info
+    # Output
+    out_dir: str = "models"
 
 
 # ============================================================
-# History accessor (robuste)
-# ============================================================
-
-def hget(history: Any, key: str, idx: int) -> Optional[float]:
-    """
-    Essayes plusieurs formats possibles de 'history' (gym_trading_env varie selon versions).
-    """
-    # format "history['portfolio_valuation', -1]" vu dans projet.ipynb
-    try:
-        v = history[key, idx]
-        return float(v)
-    except Exception:
-        pass
-
-    # pandas DataFrame/Series
-    try:
-        if hasattr(history, "columns") and key in history.columns:
-            return float(history[key].iloc[idx])
-    except Exception:
-        pass
-
-    # dict of lists / dict of arrays
-    try:
-        if isinstance(history, dict) and key in history:
-            v = history[key]
-            if isinstance(v, (list, tuple, np.ndarray, pd.Series)):
-                return float(v[idx])
-    except Exception:
-        pass
-
-    # list of dicts
-    try:
-        if isinstance(history, list) and len(history) > 0 and isinstance(history[0], dict):
-            return float(history[idx].get(key))
-    except Exception:
-        pass
-
-    return None
-
-
-def find_price_key(history: Any) -> Optional[str]:
-    # clés fréquentes possibles
-    candidates = ["close", "price", "data_close", "asset_close", "market_price"]
-    for k in candidates:
-        v0 = hget(history, k, 0)
-        v1 = hget(history, k, -1)
-        if v0 is not None and v1 is not None:
-            return k
-    return None
-
-
-# ============================================================
-# Reward shaping (projet.ipynb)
-# ============================================================
-
-def make_reward_function(mode: str) -> Optional[Callable[[Any], float]]:
-    mode = (mode or "default").lower().strip()
-    if mode == "default":
-        return None
-
-    def _reward(history: Any) -> float:
-        pv_t = hget(history, "portfolio_valuation", -1)
-        pv_tm1 = hget(history, "portfolio_valuation", -2)
-
-        if pv_t is None:
-            # fallback très conservateur
-            return 0.0
-
-        if mode == "portfolio_value":
-            return float(pv_t)
-
-        # log return portefeuille
-        if pv_tm1 is None or pv_tm1 <= 0 or pv_t <= 0:
-            r_port = 0.0
-        else:
-            r_port = float(np.log(pv_t / pv_tm1))
-
-        if mode == "log_return":
-            return r_port
-
-        if mode == "alpha_log_return":
-            pk = find_price_key(history)
-            if pk is None:
-                return r_port
-            p_t = hget(history, pk, -1)
-            p_tm1 = hget(history, pk, -2)
-            if p_t is None or p_tm1 is None or p_t <= 0 or p_tm1 <= 0:
-                return r_port
-            r_mkt = float(np.log(p_t / p_tm1))
-            return r_port - r_mkt
-
-        # fallback
-        return r_port
-
-    return _reward
-
-
-# ============================================================
-# Metrics (projet.ipynb)
-# ============================================================
-
-def add_default_metrics(env: gym.Env) -> None:
-    """
-    Ajoute des métriques via env.add_metric si dispo.
-    """
-    if not hasattr(env, "add_metric"):
-        return
-
-    def metric_portfolio_valuation(history):
-        v = hget(history, "portfolio_valuation", -1)
-        return float("nan") if v is None else round(float(v), 2)
-
-    def metric_portfolio_return(history):
-        v0 = hget(history, "portfolio_valuation", 0)
-        v1 = hget(history, "portfolio_valuation", -1)
-        if v0 is None or v1 is None or v0 == 0:
-            return float("nan")
-        return round(float(v1 / v0 - 1.0), 4)
-
-    def metric_market_return(history):
-        pk = find_price_key(history)
-        if pk is None:
-            return float("nan")
-        p0 = hget(history, pk, 0)
-        p1 = hget(history, pk, -1)
-        if p0 is None or p1 is None or p0 == 0:
-            return float("nan")
-        return round(float(p1 / p0 - 1.0), 4)
-
-    env.add_metric("Portfolio Valuation", metric_portfolio_valuation)
-    env.add_metric("Portfolio Return", metric_portfolio_return)
-    env.add_metric("Market Return", metric_market_return)
-
-
-# ============================================================
-# Features / preprocess (RSI-MACD + robust)
+# Preprocess (simple + robuste)
 # ============================================================
 
 def _rsi(close: pd.Series, period: int = 14) -> pd.Series:
@@ -287,33 +86,20 @@ def _rsi(close: pd.Series, period: int = 14) -> pd.Series:
 
 
 def preprocess_df(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    - Ajoute RSI/MACD (comme RSI-MACD.ipynb) mais version causale/robuste
-    - Remplit NaN des features (évite de tuer le dataset)
-    """
     df = df.sort_index().drop_duplicates()
 
     if "close" not in df.columns:
-        raise ValueError(f"Dataset sans colonne 'close'. Colonnes: {list(df.columns)[:20]}")
+        raise ValueError("Dataset sans colonne 'close'")
 
-    df["close"] = pd.to_numeric(df["close"], errors="coerce")
-    df["close"] = df["close"].ffill().bfill()
+    df["close"] = pd.to_numeric(df["close"], errors="coerce").ffill().bfill()
     df = df.dropna(subset=["close"])
 
     close = df["close"].astype(float)
 
-    # Ajout d'une feature prix (utile pour debug)
-    df["feature_close"] = close
-
-    # returns/vol
     df["feature_log_return"] = np.log(close).diff()
     df["feature_volatility_24"] = df["feature_log_return"].rolling(24, min_periods=24).std()
-
-    # RSI (14 + 24 comme dans l'idée 1h -> 1 jour)
     df["feature_rsi_14"] = _rsi(close, 14)
-    df["feature_rsi_24"] = _rsi(close, 24)
 
-    # MACD
     ema12 = close.ewm(span=12, adjust=False).mean()
     ema26 = close.ewm(span=26, adjust=False).mean()
     macd = ema12 - ema26
@@ -322,12 +108,11 @@ def preprocess_df(df: pd.DataFrame) -> pd.DataFrame:
     df["feature_macd_signal"] = signal
     df["feature_macd_hist"] = macd - signal
 
-    # Volume
     if "volume" in df.columns:
         vol = pd.to_numeric(df["volume"], errors="coerce").replace(0, np.nan)
         df["feature_log_volume"] = np.log(vol)
     else:
-        df["feature_log_volume"] = np.nan
+        df["feature_log_volume"] = 0.0
 
     df = df.replace([np.inf, -np.inf], np.nan)
     feat_cols = [c for c in df.columns if c.startswith("feature_")]
@@ -359,7 +144,7 @@ def preprocess_and_cache_pkls(src_files: List[str], out_dir: str, min_rows: int)
     return kept
 
 
-def split_after_preprocess(cfg: ExperimentConfig) -> Tuple[str, str, List[str], List[str]]:
+def split_after_preprocess(cfg: ProjectConfig) -> Tuple[str, str, List[str], List[str]]:
     raw_files = sorted(glob.glob(os.path.join(cfg.data_dir, "*.pkl")))
     if not raw_files:
         raise FileNotFoundError(f"Aucun .pkl trouvé dans {cfg.data_dir}/*.pkl")
@@ -401,61 +186,80 @@ def split_after_preprocess(cfg: ExperimentConfig) -> Tuple[str, str, List[str], 
 
 
 # ============================================================
-# Env
+# Env builders
 # ============================================================
 
-def make_single_env(dataset_pattern: str, cfg: ExperimentConfig) -> gym.Env:
-    reward_fn = make_reward_function(cfg.reward_mode)
-
+def make_base_env(dataset_pattern: str, pcfg: ProjectConfig) -> gym.Env:
     env = gym.make(
         "MultiDatasetTradingEnv",
         dataset_dir=dataset_pattern,
         preprocess=lambda df: df,  # déjà préprocessé/caché
-        portfolio_initial_value=cfg.portfolio_initial_value,
-        trading_fees=cfg.trading_fees,
-        borrow_interest_rate=cfg.borrow_interest_rate,
-        position_range=cfg.position_range,
-        **({"reward_function": reward_fn} if reward_fn is not None else {}),
+        portfolio_initial_value=pcfg.portfolio_initial_value,
+        trading_fees=pcfg.trading_fees,
+        borrow_interest_rate=pcfg.borrow_interest_rate,
+        position_range=pcfg.position_range,
     )
-
-    # Metrics style projet.ipynb
-    add_default_metrics(env)
-
-    # Turnover penalty (avant DiscreteActionsWrapper)
-    env = TurnoverPenaltyWrapper(env, lam=cfg.turnover_lambda)
-
-    # Actions discrètes optionnelles (projet.ipynb)
-    if cfg.use_discrete_actions:
-        from gym_trading_env.wrapper import DiscreteActionsWrapper
-        env = DiscreteActionsWrapper(env, positions=list(cfg.discrete_positions))
-
     return env
 
 
-def make_env_fn(dataset_pattern: str, cfg: ExperimentConfig, rank: int):
-    def _init():
-        env = make_single_env(dataset_pattern, cfg)
-        env.reset(seed=cfg.seed + rank)
-        return env
-    return _init
+def make_vec_env(
+    dataset_pattern: str,
+    pcfg: ProjectConfig,
+    *,
+    training: bool,
+    obs_rms=None,
+    discrete_positions: Optional[List[float]] = None,
+) -> VecNormalize:
+    """
+    - DummyVecEnv (stable sur Windows)
+    - VecNormalize obs (et reward uniquement en training)
+    - optionnel: DiscreteActionsWrapper pour DQN/QRDQN
+    """
+    def make_one():
+        e = make_base_env(dataset_pattern, pcfg)
+        if discrete_positions is not None:
+            from gym_trading_env.wrapper import DiscreteActionsWrapper
+            e = DiscreteActionsWrapper(e, positions=discrete_positions)
+        return e
+
+    env_fns = [lambda: make_one() for _ in range(pcfg.n_envs)]
+    venv = DummyVecEnv(env_fns)
+    venv = VecMonitor(venv)
+
+    venv = VecNormalize(
+        venv,
+        training=training,
+        norm_obs=pcfg.norm_obs,
+        norm_reward=(pcfg.norm_reward if training else False),
+        clip_obs=pcfg.clip_obs,
+    )
+
+    if obs_rms is not None:
+        venv.obs_rms = obs_rms
+
+    # seed stable
+    try:
+        venv.seed(pcfg.seed)
+    except Exception:
+        pass
+
+    return venv
 
 
 # ============================================================
-# Eval helpers
+# Evaluation (portfolio final) sur VecEnv
 # ============================================================
 
-def evaluate_on_vec_env(
-    vec_env: VecNormalize,
-    act_fn: Callable[[np.ndarray], np.ndarray],
-    n_episodes: int,
-    seed: int,
-) -> Dict[str, float]:
+def eval_mean_final_portfolio(vec_env: VecNormalize, act_fn, n_episodes: int, seed: int) -> float:
     finals: List[float] = []
 
     for ep in range(n_episodes):
-        vec_env.seed(seed + ep)
-        obs = vec_env.reset()
+        try:
+            vec_env.seed(seed + ep)
+        except Exception:
+            pass
 
+        obs = vec_env.reset()
         done = False
         last_val = None
 
@@ -464,261 +268,327 @@ def evaluate_on_vec_env(
             obs, rewards, dones, infos = vec_env.step(action)
             done = bool(dones[0])
 
+            # tentative 1: info direct
             if infos and isinstance(infos[0], dict) and "portfolio_valuation" in infos[0]:
-                last_val = float(infos[0]["portfolio_valuation"])
+                try:
+                    last_val = float(infos[0]["portfolio_valuation"])
+                except Exception:
+                    pass
 
-        # fallback sur historique
+        # fallback 2: metrics de l'env (projet.ipynb)
         if last_val is None:
             try:
-                hist = vec_env.get_attr("historical_info")[0]
-                v = hget(hist, "portfolio_valuation", -1)
-                if v is not None:
-                    last_val = float(v)
+                get_metrics = vec_env.get_attr("get_metrics")[0]
+                metrics = get_metrics()
+                # Selon env: "Portfolio Valuation" ou autre
+                if isinstance(metrics, dict):
+                    for k in ["Portfolio Valuation", "portfolio_valuation"]:
+                        if k in metrics:
+                            last_val = float(metrics[k])
+                            break
             except Exception:
                 pass
 
-        if last_val is not None:
+        # fallback 3: historical_info
+        if last_val is None:
+            try:
+                hist = vec_env.get_attr("historical_info")[0]
+                # hist peut être list[dict] ou DataFrame
+                if isinstance(hist, list) and hist and isinstance(hist[-1], dict) and "portfolio_valuation" in hist[-1]:
+                    last_val = float(hist[-1]["portfolio_valuation"])
+                elif hasattr(hist, "columns") and "portfolio_valuation" in hist.columns:
+                    last_val = float(hist["portfolio_valuation"].iloc[-1])
+            except Exception:
+                pass
+
+        if last_val is not None and np.isfinite(last_val):
             finals.append(last_val)
 
-    if not finals:
-        return {"mean_final": float("nan"), "std_final": float("nan"), "n": 0.0}
+    return float(np.mean(finals)) if finals else float("nan")
 
+
+# ============================================================
+# Hyperparams par algo (précis)
+# ============================================================
+
+def algo_hyperparams() -> Dict[str, Dict[str, Any]]:
+    """
+    Tu peux modifier ici et relancer.
+    """
     return {
-        "mean_final": float(np.mean(finals)),
-        "std_final": float(np.std(finals)),
-        "n": float(len(finals)),
+        # On-policy (actions Box ou Discrete)
+        "ppo": dict(total_timesteps=30_000, learning_rate=3e-4, n_steps=2048, batch_size=256,
+                    n_epochs=10, ent_coef=0.01, vf_coef=2.0, gae_lambda=0.95, clip_range=0.2, target_kl=0.02),
+        "a2c": dict(total_timesteps=30_000, learning_rate=7e-4, n_steps=128, ent_coef=0.0, vf_coef=1.0, gae_lambda=0.95),
+
+        # Off-policy continuous
+        "sac": dict(total_timesteps=40_000, learning_rate=3e-4, buffer_size=300_000, batch_size=256,
+                    learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1,
+                    extra={"sac": {"ent_coef": "auto"}}),
+        "td3": dict(total_timesteps=40_000, learning_rate=1e-3, buffer_size=300_000, batch_size=256,
+                    learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1),
+        "ddpg": dict(total_timesteps=40_000, learning_rate=1e-3, buffer_size=300_000, batch_size=256,
+                     learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1),
+
+        # Discrete only
+        "dqn": dict(total_timesteps=40_000, learning_rate=1e-4, buffer_size=200_000, batch_size=64,
+                    learning_starts=5_000, train_freq=4, gradient_steps=1,
+                    exploration_fraction=0.2, exploration_final_eps=0.02),
+
+        # Contrib (si présent)
+        "trpo": dict(total_timesteps=30_000, learning_rate=3e-4),
+        "recurrentppo": dict(total_timesteps=30_000, learning_rate=3e-4),
+        "qrdqn": dict(total_timesteps=40_000, learning_rate=1e-4, buffer_size=200_000, batch_size=64,
+                      learning_starts=5_000, train_freq=4, gradient_steps=1),
+        "tqc": dict(total_timesteps=40_000, learning_rate=3e-4, buffer_size=300_000, batch_size=256,
+                    learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1),
+        "crossq": dict(total_timesteps=40_000, learning_rate=3e-4, buffer_size=300_000, batch_size=256,
+                       learning_starts=10_000, tau=0.005, train_freq=1, gradient_steps=1),
+        "ars": dict(total_timesteps=40_000, learning_rate=3e-4),
     }
 
 
-def eval_by_file_table(cfg: ExperimentConfig, model: PPO, train_obs_rms, test_files: List[str]):
-    table = wandb.Table(columns=["file", "policy", "mean_final", "std_final", "n"])
-
-    ppo_wins = 0
-    n_files = 0
-    ppo_means, bh_means, rnd_means = [], [], []
-
-    for fpath in test_files:
-        one_eval = DummyVecEnv([make_env_fn(fpath, cfg, 10_000)])
-        one_eval = VecMonitor(one_eval)
-        one_eval = VecNormalize(
-            one_eval, training=False,
-            norm_obs=cfg.norm_obs, norm_reward=False, clip_obs=cfg.clip_obs
-        )
-        one_eval.obs_rms = train_obs_rms
-
-        def random_act(_obs):
-            # Discrete/Box géré par action_space.sample()
-            a = one_eval.action_space.sample()
-            # DummyVecEnv attend shape (n_env, ...)
-            return np.array([a])
-
-        def buyhold_act(_obs):
-            # si discret: pick l'index de la position max
-            if cfg.use_discrete_actions:
-                # position max = last index
-                return np.array([len(cfg.discrete_positions) - 1])
-            return np.array([[1.0]], dtype=np.float32)
-
-        def ppo_act(obs):
-            a, _ = model.predict(obs, deterministic=cfg.deterministic_eval)
-            return a
-
-        base = cfg.eval_seed_base
-        rr = evaluate_on_vec_env(one_eval, random_act, cfg.n_eval_episodes, base + 1_000)
-        bh = evaluate_on_vec_env(one_eval, buyhold_act, cfg.n_eval_episodes, base + 2_000)
-        pp = evaluate_on_vec_env(one_eval, ppo_act, cfg.n_eval_episodes, base + 3_000)
-
-        fname = os.path.basename(fpath)
-        table.add_data(fname, "random", rr["mean_final"], rr["std_final"], int(rr["n"]))
-        table.add_data(fname, "buyhold", bh["mean_final"], bh["std_final"], int(bh["n"]))
-        table.add_data(fname, "ppo", pp["mean_final"], pp["std_final"], int(pp["n"]))
-
-        if np.isfinite(rr["mean_final"]): rnd_means.append(rr["mean_final"])
-        if np.isfinite(bh["mean_final"]): bh_means.append(bh["mean_final"])
-        if np.isfinite(pp["mean_final"]): ppo_means.append(pp["mean_final"])
-
-        if np.isfinite(pp["mean_final"]) and np.isfinite(bh["mean_final"]):
-            n_files += 1
-            if pp["mean_final"] > bh["mean_final"]:
-                ppo_wins += 1
-
-        one_eval.close()
-
-    def smean(x): return float(np.mean(x)) if x else float("nan")
-
-    summary = {
-        "test/random_mean_final": smean(rnd_means),
-        "test/buyhold_mean_final": smean(bh_means),
-        "test/ppo_mean_final": smean(ppo_means),
-    }
-    summary["test/ppo_minus_buyhold"] = summary["test/ppo_mean_final"] - summary["test/buyhold_mean_final"]
-    summary["test/win_rate_vs_buyhold"] = (ppo_wins / n_files) if n_files > 0 else float("nan")
-    return table, summary
-
-
 # ============================================================
-# Main training
+# Main benchmark + W&B
 # ============================================================
 
-def run_experiment(cfg: ExperimentConfig, group: Optional[str] = None) -> Dict[str, float]:
-    os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
-
-    print("[config]")
-    for k, v in asdict(cfg).items():
-        print(f"  - {k}: {v}")
-
-    train_glob, test_glob, train_files, test_files = split_after_preprocess(cfg)
-
-    run = wandb.init(
-        project=cfg.wandb_project,
-        entity=cfg.wandb_entity,
-        config=asdict(cfg),
-        save_code=True,
-        sync_tensorboard=cfg.wandb_sync_tensorboard,
-        group=group,
-    )
-
-    # run name lisible
-    wandb.run.name = (
-        f"seed={cfg.seed}_split={cfg.split_seed}_reward={cfg.reward_mode}"
-        f"_disc={int(cfg.use_discrete_actions)}_lam={cfg.turnover_lambda:g}_lr={cfg.learning_rate:g}"
-    )
-
-    # log fichiers test (utile pour debug)
-    wandb.log({
-        "data/n_train_files": len(train_files),
-        "data/n_test_files": len(test_files),
-        "data/test_files_table": wandb.Table(columns=["file"], data=[[os.path.basename(f)] for f in test_files]),
-    })
-
-    # Train env
-    train_env = DummyVecEnv([make_env_fn(train_glob, cfg, i) for i in range(cfg.n_envs)])
-    train_env = VecMonitor(train_env)
-    train_env = VecNormalize(
-        train_env,
-        training=True,
-        norm_obs=cfg.norm_obs,
-        norm_reward=cfg.norm_reward,
-        clip_obs=cfg.clip_obs,
-    )
-
-    # Eval env (pour courbes eval/* via EvalCallback)
-    eval_env = DummyVecEnv([make_env_fn(test_glob, cfg, 10_000)])
-    eval_env = VecMonitor(eval_env)
-    eval_env = VecNormalize(
-        eval_env,
-        training=False,
-        norm_obs=cfg.norm_obs,
-        norm_reward=False,
-        clip_obs=cfg.clip_obs,
-    )
-    eval_env.obs_rms = train_env.obs_rms
-
-    Path(cfg.model_dir).mkdir(parents=True, exist_ok=True)
-
-    eval_cb = EvalCallback(
-        eval_env,
-        best_model_save_path=cfg.model_dir,
-        log_path=cfg.model_dir,
-        eval_freq=cfg.eval_freq,
-        n_eval_episodes=cfg.n_eval_episodes,
-        deterministic=cfg.deterministic_eval,
-    )
-
-    callback = CallbackList([
-        eval_cb,
-        WandbCallback(
-            model_save_path=os.path.join(cfg.model_dir, "wandb_models", run.id),
-            model_save_freq=0,
-            verbose=0,
-        ),
-    ])
-
-    tb_dir = os.path.join(cfg.model_dir, "tb", run.id) if cfg.wandb_sync_tensorboard else None
-    policy_kwargs = dict(net_arch=dict(pi=list(cfg.net_arch_pi), vf=list(cfg.net_arch_vf)))
-
-    model = PPO(
-        "MlpPolicy",
-        train_env,
-        learning_rate=cfg.learning_rate,
-        n_steps=cfg.n_steps,
-        batch_size=cfg.batch_size,
-        n_epochs=cfg.n_epochs,
-        gamma=cfg.gamma,
-        gae_lambda=cfg.gae_lambda,
-        clip_range=cfg.clip_range,
-        ent_coef=cfg.ent_coef,
-        vf_coef=cfg.vf_coef,
-        max_grad_norm=cfg.max_grad_norm,
-        target_kl=cfg.target_kl,
-        policy_kwargs=policy_kwargs,
-        verbose=1,
-        seed=cfg.seed,
-        device="cpu",
-        tensorboard_log=tb_dir,
-    )
-
-    model.learn(total_timesteps=cfg.total_timesteps, callback=callback)
-
-    # Post-train eval (log en W&B)
-    by_file_table, summary = eval_by_file_table(cfg, model, train_env.obs_rms, test_files)
-    wandb.log({"test/by_file_table": by_file_table, **summary})
-    wandb.run.summary["test/by_file_table"] = by_file_table
-    for k, v in summary.items():
-        wandb.run.summary[k] = v
-
-    # save model + normalizer
-    model_path = os.path.join(cfg.model_dir, f"ppo_{run.id}")
-    norm_path = os.path.join(cfg.model_dir, f"vecnormalize_{run.id}.pkl")
-    model.save(model_path)
-    train_env.save(norm_path)
-    wandb.run.summary["model_path"] = model_path + ".zip"
-    wandb.run.summary["vecnormalize_path"] = norm_path
-
-    wandb.finish()
-    eval_env.close()
-    train_env.close()
-    return summary
-
-
-# ============================================================
-# Example: run grid quick
-# ============================================================
-
-def run_small_grid():
-    base = ExperimentConfig(
+def main():
+    pcfg = ProjectConfig(
         data_dir="data",
         seed=0,
         split_seed=0,
-        reward_mode="alpha_log_return",
-        use_discrete_actions=False,   # teste True si PPO instable
-        total_timesteps=20_000,
+        test_ratio=0.35,
+        min_test_files=2,
+        min_rows_after_preprocess=300,
+        position_range=(0.0, 1.0),
+        n_envs=1,  # monte à 4 si tu veux, mais garde DummyVecEnv
         eval_freq=10_000,
         n_eval_episodes=5,
-        n_envs=4,
-        turnover_lambda=1e-3,
-        learning_rate=3e-4,
-        ent_coef=0.01,
-        vf_coef=1.0,
-        target_kl=0.02,
+        eval_seed_base=12345,
+        wandb_project="rl-trading-env",
+        wandb_entity=None,  # "lafuethibaut-cpe-lyon" si tu veux forcer
+        wandb_group="bench_all_algos",
         wandb_sync_tensorboard=True,
+        out_dir="models",
     )
 
-    seeds = [0, 10, 20]
-    lams = [1e-4, 1e-3, 5e-3]
+    print("[project config]")
+    for k, v in asdict(pcfg).items():
+        print(f"  - {k}: {v}")
 
-    for s in seeds:
-        for lam in lams:
-            cfg = deepcopy(base)
-            cfg.seed = s
-            cfg.turnover_lambda = lam
-            run_experiment(cfg, group="grid_reward_alpha")
+    train_glob, test_glob, train_files, test_files = split_after_preprocess(pcfg)
+
+    # algos installés via factory
+    algos_map = available_algorithms(include_contrib=True)
+    installed_algos = sorted(algos_map.keys())
+    print(f"[algos installed] {installed_algos}")
+
+    hp_map = algo_hyperparams()
+
+    # positions discrètes pour DQN/QRDQN
+    discrete_positions = [0.0, 0.25, 0.5, 0.75, 1.0]
+
+    results: List[Dict[str, Any]] = []
+
+    for algo in installed_algos:
+        if algo not in hp_map:
+            print(f"[skip] {algo}: pas d'hyperparams définis")
+            continue
+
+        hp = hp_map[algo]
+        needs_discrete = ("dqn" in algo)  # dqn + qrdqn
+
+        run = None
+        train_env = None
+        eval_env = None
+
+        try:
+            # W&B run
+            run = wandb.init(
+                project=pcfg.wandb_project,
+                entity=pcfg.wandb_entity,
+                group=pcfg.wandb_group,
+                name=f"{algo}_seed{pcfg.seed}",
+                config={
+                    "project_cfg": asdict(pcfg),
+                    "algo": algo,
+                    "algo_hp": hp,
+                    "train_files": [os.path.basename(f) for f in train_files],
+                    "test_files": [os.path.basename(f) for f in test_files],
+                },
+                save_code=True,
+                sync_tensorboard=pcfg.wandb_sync_tensorboard,
+            )
+
+            # TensorBoard dir (pour courbes rollout/train/eval)
+            tb_dir = os.path.join(pcfg.out_dir, "tb", run.id)
+            Path(tb_dir).mkdir(parents=True, exist_ok=True)
+
+            print(f"\n===== {algo.upper()} =====")
+            print(f"[wandb] {run.url}")
+
+            # envs
+            train_env = make_vec_env(
+                train_glob, pcfg, training=True,
+                discrete_positions=discrete_positions if needs_discrete else None,
+            )
+            eval_env = make_vec_env(
+                test_glob, pcfg, training=False,
+                obs_rms=train_env.obs_rms,
+                discrete_positions=discrete_positions if needs_discrete else None,
+            )
+
+            # callbacks (eval -> log eval/* dans TB, donc sync vers W&B)
+            callbacks = []
+            if pcfg.eval_freq and pcfg.eval_freq > 0:
+                eval_cb = EvalCallback(
+                    eval_env,
+                    eval_freq=pcfg.eval_freq,
+                    n_eval_episodes=pcfg.n_eval_episodes,
+                    deterministic=True,
+                    verbose=0,
+                )
+                callbacks.append(eval_cb)
+
+            callback = CallbackList(callbacks) if callbacks else None
+
+            # config SB3 (factory)
+            cfg = SB3Config(
+                seed=pcfg.seed,
+                device="cpu",
+                verbose=1,
+                policy="MlpPolicy",
+                tensorboard_log=tb_dir,
+
+                total_timesteps=int(hp.get("total_timesteps", 30_000)),
+                learning_rate=float(hp.get("learning_rate", 3e-4)),
+                gamma=float(hp.get("gamma", 0.99)),
+
+                n_steps=int(hp.get("n_steps", 2048)),
+                batch_size=int(hp.get("batch_size", 256)),
+                n_epochs=int(hp.get("n_epochs", 10)),
+                gae_lambda=float(hp.get("gae_lambda", 0.95)),
+                clip_range=float(hp.get("clip_range", 0.2)),
+                ent_coef=hp.get("ent_coef", 0.0),
+                vf_coef=float(hp.get("vf_coef", 1.0)),
+                max_grad_norm=float(hp.get("max_grad_norm", 0.5)),
+                target_kl=hp.get("target_kl", None),
+
+                buffer_size=int(hp.get("buffer_size", 300_000)),
+                learning_starts=int(hp.get("learning_starts", 10_000)),
+                train_freq=int(hp.get("train_freq", 1)),
+                gradient_steps=int(hp.get("gradient_steps", 1)),
+                tau=float(hp.get("tau", 0.005)),
+
+                exploration_fraction=float(hp.get("exploration_fraction", 0.1)),
+                exploration_final_eps=float(hp.get("exploration_final_eps", 0.02)),
+
+                extra=hp.get("extra", None),
+            )
+
+            # build model + train
+            model = model_choice(algo, cfg, train_env)
+            model.learn(total_timesteps=cfg.total_timesteps, callback=callback)
+
+            # Eval: random / buy&hold / agent
+            if needs_discrete:
+                def random_act(_obs):
+                    return np.array([eval_env.action_space.sample()])
+
+                def buyhold_act(_obs):
+                    return np.array([len(discrete_positions) - 1])
+
+            else:
+                def random_act(_obs):
+                    return np.array([eval_env.action_space.sample()])
+
+                def buyhold_act(_obs):
+                    return np.array([[1.0]], dtype=np.float32)
+
+            def agent_act(obs):
+                a, _ = model.predict(obs, deterministic=True)
+                return a
+
+            rnd = eval_mean_final_portfolio(eval_env, random_act, pcfg.n_eval_episodes, pcfg.eval_seed_base + 1000)
+            bh = eval_mean_final_portfolio(eval_env, buyhold_act, pcfg.n_eval_episodes, pcfg.eval_seed_base + 2000)
+            ag = eval_mean_final_portfolio(eval_env, agent_act, pcfg.n_eval_episodes, pcfg.eval_seed_base + 3000)
+
+            diff = (ag - bh) if np.isfinite(ag) and np.isfinite(bh) else float("nan")
+
+            # log W&B
+            wandb.log({
+                "eval/random_mean_final": rnd,
+                "eval/buyhold_mean_final": bh,
+                "eval/agent_mean_final": ag,
+                "eval/agent_minus_buyhold": diff,
+            })
+            wandb.run.summary["eval/agent_minus_buyhold"] = diff
+
+            # save model + normalizer
+            out_algo_dir = os.path.join(pcfg.out_dir, "bench_models", algo)
+            Path(out_algo_dir).mkdir(parents=True, exist_ok=True)
+            model_path = os.path.join(out_algo_dir, f"{algo}_{run.id}")
+            norm_path = os.path.join(out_algo_dir, f"vecnormalize_{run.id}.pkl")
+
+            model.save(model_path)
+            try:
+                train_env.save(norm_path)
+            except Exception:
+                pass
+
+            wandb.run.summary["saved/model"] = model_path + ".zip"
+            wandb.run.summary["saved/vecnormalize"] = norm_path
+
+            # console
+            print(f"[eval] random={rnd:.2f} | buyhold={bh:.2f} | agent={ag:.2f} | agent-bh={diff:.2f}")
+
+            results.append({
+                "algo": algo,
+                "random_mean_final": rnd,
+                "buyhold_mean_final": bh,
+                "agent_mean_final": ag,
+                "agent_minus_buyhold": diff,
+            })
+
+        except Exception as e:
+            if run is not None:
+                wandb.log({"error": f"{type(e).__name__}: {e}"})
+            raise
+        finally:
+            try:
+                if eval_env is not None:
+                    eval_env.close()
+            except Exception:
+                pass
+            try:
+                if train_env is not None:
+                    train_env.close()
+            except Exception:
+                pass
+            try:
+                if run is not None:
+                    wandb.finish()
+            except Exception:
+                pass
+
+    # ranking final (console + csv)
+    results_sorted = sorted(
+        results,
+        key=lambda r: (r["agent_minus_buyhold"] if np.isfinite(r["agent_minus_buyhold"]) else -1e18),
+        reverse=True,
+    )
+
+    print("\n===== RANKING (agent_minus_buyhold) =====")
+    for r in results_sorted:
+        print(
+            f"{r['algo']:>12} | agent={r['agent_mean_final']:.2f} | "
+            f"bh={r['buyhold_mean_final']:.2f} | diff={r['agent_minus_buyhold']:.2f}"
+        )
+
+    out_csv = "algo_benchmark_results.csv"
+    pd.DataFrame(results_sorted).to_csv(out_csv, index=False)
+    print(f"\n[saved] {out_csv}")
 
 
 if __name__ == "__main__":
-    # Run unique:
-    # cfg = ExperimentConfig()
-    # run_experiment(cfg)
-
-    # Grid:
-    run_small_grid()
+    main()
