@@ -16,11 +16,7 @@ La démarche scientifique et le résultat final sont séparés en deux fichiers 
     * Ce notebook contient **le détail de la réflexion** et l'intégralité du processus de R&D.
     * Vous y trouverez les différentes phases du projet : les échecs initiaux, les tests sur différents algorithmes (TD3, SAC, DQN, A2C), l'implémentation des modèles récurrents (LSTM) et les ajustements de la fonction de récompense.
 
-    * **`CleanProject.ipynb` : Modèle final sous forme de Script Python**
-    * Ce script contient le rendu final dans un script Python exécutable mais avec des hyperparamètres prédéfinis.
-
 * **`rendu_final.ipynb` : Modèle Final**
     * Ce notebook contient le **rendu final** épuré.
     * Il présente l'architecture retenue (**PPO** avec *Windowed Observation* et Normalisation Z-Score) qui offre la meilleure stabilité et gestion du risque.
     * Il inclut le code d'entraînement, d'évaluation et de visualisation.
-    * La fonction de reward a été modifiée par rapport à CleanProject pour mieux gérer le risque.
