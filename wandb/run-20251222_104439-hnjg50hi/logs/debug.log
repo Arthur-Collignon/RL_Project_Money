@@ -1,0 +1,90 @@
+2025-12-22 10:44:39,931 INFO    MainThread:5060 [wandb_init.py:setup_run_log_directory():714] Logging user logs to C:\Users\arthu\Work\CPE\S9\ReinforcementLearning\Projet\wandb\run-20251222_104439-hnjg50hi\logs\debug.log
+2025-12-22 10:44:39,931 INFO    MainThread:5060 [wandb_init.py:setup_run_log_directory():715] Logging internal logs to C:\Users\arthu\Work\CPE\S9\ReinforcementLearning\Projet\wandb\run-20251222_104439-hnjg50hi\logs\debug-internal.log
+2025-12-22 10:44:39,931 INFO    MainThread:5060 [wandb_init.py:monkeypatch_ipython():633] configuring jupyter hooks <wandb.sdk.wandb_init._WandbInit object at 0x000001BBC585CE10>
+2025-12-22 10:44:39,933 INFO    MainThread:5060 [wandb_init.py:init():841] calling init triggers
+2025-12-22 10:44:39,933 INFO    MainThread:5060 [wandb_init.py:init():846] wandb.init called with sweep_config: {}
+config: {'policy_type': 'MlpLstmPolicy', 'total_timesteps': 500000, 'learning_rate': 0.0003, 'ent_coef': 0.01, 'batch_size': 128, 'n_steps': 2048, 'window_size': 20, 'positions': [0, 0.5, 1.0], 'project_name': 'RL-Trading-Project', 'run_name': 'RecurrentPPO_Optimized', '_wandb': {'code_path': 'code/projet.ipynb'}}
+2025-12-22 10:44:39,933 INFO    MainThread:5060 [wandb_init.py:init():889] starting backend
+2025-12-22 10:44:39,933 INFO    MainThread:5060 [wandb_init.py:init():892] sending inform_init request
+2025-12-22 10:44:39,937 INFO    MainThread:5060 [wandb_init.py:init():900] backend started and connected
+2025-12-22 10:44:39,964 INFO    MainThread:5060 [wandb_run.py:_label_probe_notebook():1334] probe notebook
+2025-12-22 10:44:39,965 INFO    MainThread:5060 [wandb_run.py:_label_probe_notebook():1344] Unable to probe notebook: 'charmap' codec can't decode byte 0x8f in position 25807: character maps to <undefined>
+2025-12-22 10:44:39,965 INFO    MainThread:5060 [wandb_init.py:init():970] updated telemetry
+2025-12-22 10:44:40,029 INFO    MainThread:5060 [wandb_init.py:init():994] communicating run to backend with 90.0 second timeout
+2025-12-22 10:44:40,542 INFO    MainThread:5060 [wandb_init.py:init():1041] starting run threads in backend
+2025-12-22 10:44:41,033 INFO    MainThread:5060 [wandb_run.py:_console_start():2521] atexit reg
+2025-12-22 10:44:41,033 INFO    MainThread:5060 [wandb_run.py:_redirect():2369] redirect: wrap_raw
+2025-12-22 10:44:41,034 INFO    MainThread:5060 [wandb_run.py:_redirect():2438] Wrapping output streams.
+2025-12-22 10:44:41,034 INFO    MainThread:5060 [wandb_run.py:_redirect():2461] Redirects installed.
+2025-12-22 10:44:41,036 INFO    MainThread:5060 [wandb_init.py:init():1081] run started, returning control to user process
+2025-12-22 10:44:41,761 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:47:23,087 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:47:23,977 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:47:23,977 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:47:23,977 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:47:23,979 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:47:23,994 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:47:24,201 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:47:24,201 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:47:24,201 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:47:24,238 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:47:24,257 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:47:24,417 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:47:24,418 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:47:24,418 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:47:24,456 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:47:24,863 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:47:25,032 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:47:25,033 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:47:25,033 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:47:25,115 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:47:25,131 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:47:25,288 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:47:25,289 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:47:25,289 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:47:25,298 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:47:25,313 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:47:25,460 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:47:25,461 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:47:25,461 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:47:25,475 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:47:25,486 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:47:25,641 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:47:25,641 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:47:25,642 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:47:25,707 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:47:25,721 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:47:25,877 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:47:25,877 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:47:25,878 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:47:28,148 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:47:28,162 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:47:28,313 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:47:28,314 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:47:28,314 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:47:30,303 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:47:30,316 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:47:30,479 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:47:30,480 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:47:30,480 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:47:30,482 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:48:20,063 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:48:20,238 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:48:20,239 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:48:20,239 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:48:20,244 INFO    MainThread:5060 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-22 10:48:36,280 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-22 10:48:36,443 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:48:36,444 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:48:36,444 INFO    MainThread:5060 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-22 10:48:36,978 INFO    MainThread:5060 [wandb_run.py:_finish():2287] finishing run arthur-collignon-cpe-lyon/RL-Trading-Project/hnjg50hi
+2025-12-22 10:48:37,031 INFO    MainThread:5060 [jupyter.py:save_history():464] saving 15 cells to _session_history.ipynb
+2025-12-22 10:48:37,032 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb ('_wandb', 'session_history') code\_session_history.ipynb None
+2025-12-22 10:48:37,038 INFO    MainThread:5060 [jupyter.py:_save_ipynb():371] looking for notebook: projet.ipynb
+2025-12-22 10:48:37,202 INFO    MainThread:5060 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-22 10:48:37,203 INFO    MainThread:5060 [wandb_init.py:_jupyter_teardown():617] saved code and history: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-22 10:48:37,203 INFO    MainThread:5060 [wandb_init.py:_jupyter_teardown():618] cleaning up jupyter logic
+2025-12-22 10:48:37,203 INFO    MainThread:5060 [wandb_run.py:_atexit_cleanup():2486] got exitcode: 0
+2025-12-22 10:48:37,204 INFO    MainThread:5060 [wandb_run.py:_restore():2468] restore
+2025-12-22 10:48:37,204 INFO    MainThread:5060 [wandb_run.py:_restore():2474] restore done
+2025-12-22 10:48:39,397 INFO    MainThread:5060 [wandb_run.py:_footer_sync_info():3862] logging synced files

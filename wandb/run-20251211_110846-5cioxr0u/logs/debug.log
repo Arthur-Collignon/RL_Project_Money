@@ -1,0 +1,40 @@
+2025-12-11 11:08:46,739 INFO    MainThread:32564 [wandb_init.py:setup_run_log_directory():714] Logging user logs to C:\Users\arthu\Work\CPE\S9\ReinforcementLearning\Projet\wandb\run-20251211_110846-5cioxr0u\logs\debug.log
+2025-12-11 11:08:46,739 INFO    MainThread:32564 [wandb_init.py:setup_run_log_directory():715] Logging internal logs to C:\Users\arthu\Work\CPE\S9\ReinforcementLearning\Projet\wandb\run-20251211_110846-5cioxr0u\logs\debug-internal.log
+2025-12-11 11:08:46,739 INFO    MainThread:32564 [wandb_init.py:monkeypatch_ipython():633] configuring jupyter hooks <wandb.sdk.wandb_init._WandbInit object at 0x000001FAB44CA990>
+2025-12-11 11:08:46,739 INFO    MainThread:32564 [wandb_init.py:init():841] calling init triggers
+2025-12-11 11:08:46,740 INFO    MainThread:32564 [wandb_init.py:init():846] wandb.init called with sweep_config: {}
+config: {'policy_type': 'MlpLstmPolicy', 'total_timesteps': 100000, 'env_id': 'MultiDatasetTradingEnv', 'learning_rate': 0.0003, 'n_steps': 2048, 'batch_size': 128, 'ent_coef': 0.01, '_wandb': {'code_path': 'code/projet.ipynb'}}
+2025-12-11 11:08:46,740 INFO    MainThread:32564 [wandb_init.py:init():889] starting backend
+2025-12-11 11:08:46,740 INFO    MainThread:32564 [wandb_init.py:init():892] sending inform_init request
+2025-12-11 11:08:46,743 INFO    MainThread:32564 [wandb_init.py:init():900] backend started and connected
+2025-12-11 11:08:46,747 INFO    MainThread:32564 [wandb_run.py:_label_probe_notebook():1334] probe notebook
+2025-12-11 11:08:46,748 INFO    MainThread:32564 [wandb_run.py:_label_probe_notebook():1344] Unable to probe notebook: 'charmap' codec can't decode byte 0x8f in position 25155: character maps to <undefined>
+2025-12-11 11:08:46,749 INFO    MainThread:32564 [wandb_init.py:init():970] updated telemetry
+2025-12-11 11:08:46,796 INFO    MainThread:32564 [wandb_init.py:init():994] communicating run to backend with 90.0 second timeout
+2025-12-11 11:08:47,354 INFO    MainThread:32564 [wandb_init.py:init():1041] starting run threads in backend
+2025-12-11 11:08:47,641 INFO    MainThread:32564 [wandb_run.py:_console_start():2521] atexit reg
+2025-12-11 11:08:47,641 INFO    MainThread:32564 [wandb_run.py:_redirect():2369] redirect: wrap_raw
+2025-12-11 11:08:47,641 INFO    MainThread:32564 [wandb_run.py:_redirect():2438] Wrapping output streams.
+2025-12-11 11:08:47,641 INFO    MainThread:32564 [wandb_run.py:_redirect():2461] Redirects installed.
+2025-12-11 11:08:47,642 INFO    MainThread:32564 [wandb_init.py:init():1081] run started, returning control to user process
+2025-12-11 11:08:47,717 INFO    MainThread:32564 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-11 11:09:38,970 INFO    MainThread:32564 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-11 11:09:39,995 INFO    MainThread:32564 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-11 11:09:39,995 INFO    MainThread:32564 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-11 11:09:39,995 INFO    MainThread:32564 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-11 11:09:39,999 INFO    MainThread:32564 [wandb_init.py:_post_run_cell_hook():603] [no run ID] resuming backend
+2025-12-11 11:09:43,676 INFO    MainThread:32564 [jupyter.py:_save_ipynb():371] [no run ID] looking for notebook: projet.ipynb
+2025-12-11 11:09:43,872 INFO    MainThread:32564 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-11 11:09:43,873 INFO    MainThread:32564 [wandb_init.py:_pre_run_cell_hook():589] [no run ID] saved code: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-11 11:09:43,873 INFO    MainThread:32564 [wandb_init.py:_pre_run_cell_hook():592] [no run ID] pausing backend
+2025-12-11 11:09:44,578 INFO    MainThread:32564 [wandb_run.py:_finish():2287] finishing run arthur-collignon-cpe-lyon/RL-Trading-Project/5cioxr0u
+2025-12-11 11:09:44,589 INFO    MainThread:32564 [jupyter.py:save_history():464] saving 20 cells to _session_history.ipynb
+2025-12-11 11:09:44,590 INFO    MainThread:32564 [wandb_run.py:_config_callback():1396] config_cb ('_wandb', 'session_history') code\_session_history.ipynb None
+2025-12-11 11:09:44,596 INFO    MainThread:32564 [jupyter.py:_save_ipynb():371] looking for notebook: projet.ipynb
+2025-12-11 11:09:44,767 INFO    MainThread:32564 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-11 11:09:44,768 INFO    MainThread:32564 [wandb_init.py:_jupyter_teardown():617] saved code and history: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-11 11:09:44,768 INFO    MainThread:32564 [wandb_init.py:_jupyter_teardown():618] cleaning up jupyter logic
+2025-12-11 11:09:44,768 INFO    MainThread:32564 [wandb_run.py:_atexit_cleanup():2486] got exitcode: 0
+2025-12-11 11:09:44,768 INFO    MainThread:32564 [wandb_run.py:_restore():2468] restore
+2025-12-11 11:09:44,769 INFO    MainThread:32564 [wandb_run.py:_restore():2474] restore done
+2025-12-11 11:09:47,204 INFO    MainThread:32564 [wandb_run.py:_footer_sync_info():3862] logging synced files

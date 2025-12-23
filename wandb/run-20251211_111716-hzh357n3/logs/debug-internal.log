@@ -1,0 +1,17 @@
+{"time":"2025-12-11T11:17:16.558224+01:00","level":"INFO","msg":"stream: starting","core version":"0.23.1"}
+{"time":"2025-12-11T11:17:16.8407198+01:00","level":"INFO","msg":"stream: created new stream","id":"hzh357n3"}
+{"time":"2025-12-11T11:17:16.8407198+01:00","level":"INFO","msg":"handler: started","stream_id":"hzh357n3"}
+{"time":"2025-12-11T11:17:16.8412237+01:00","level":"INFO","msg":"stream: started","id":"hzh357n3"}
+{"time":"2025-12-11T11:17:16.8412237+01:00","level":"INFO","msg":"writer: started","stream_id":"hzh357n3"}
+{"time":"2025-12-11T11:17:16.8412237+01:00","level":"INFO","msg":"sender: started","stream_id":"hzh357n3"}
+{"time":"2025-12-11T11:17:17.2731298+01:00","level":"ERROR","msg":"error getting latest commit","error":"exit status 128"}
+{"time":"2025-12-11T11:17:27.5393129+01:00","level":"WARN","msg":"tensorboard: no root directory","error":"timed out after 10s"}
+{"time":"2025-12-11T11:17:27.5393129+01:00","level":"INFO","msg":"tensorboard: tracking new log directory","rootDir":{},"logDir":"LocalOrCloudPath(LocalPath=\"C:\\\\Users\\\\arthu\\\\Work\\\\CPE\\\\S9\\\\ReinforcementLearning\\\\Projet\\\\runs\\\\hzh357n3\\\\RecurrentPPO_1\")","namespace":""}
+{"time":"2025-12-11T11:17:27.5405568+01:00","level":"INFO","msg":"tensorboard: saving file","fileLocation":"C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\runs\\hzh357n3\\RecurrentPPO_1\\events.out.tfevents.1765448237.Pac_Computer.32564.3","runPath":"runs/hzh357n3/RecurrentPPO_1/events.out.tfevents.1765448237.Pac_Computer.32564.3"}
+{"time":"2025-12-11T11:17:27.5432891+01:00","level":"ERROR","msg":"tensorboard: error creating symlink","target":"C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\runs\\hzh357n3\\RecurrentPPO_1\\events.out.tfevents.1765448237.Pac_Computer.32564.3","symlink":"C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\wandb\\run-20251211_111716-hzh357n3\\files\\runs\\hzh357n3\\RecurrentPPO_1\\events.out.tfevents.1765448237.Pac_Computer.32564.3","error":"symlink C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\runs\\hzh357n3\\RecurrentPPO_1\\events.out.tfevents.1765448237.Pac_Computer.32564.3 C:\\Users\\arthu\\Work\\CPE\\S9\\ReinforcementLearning\\Projet\\wandb\\run-20251211_111716-hzh357n3\\files\\runs\\hzh357n3\\RecurrentPPO_1\\events.out.tfevents.1765448237.Pac_Computer.32564.3: A required privilege is not held by the client."}
+{"time":"2025-12-11T11:24:51.3855198+01:00","level":"INFO","msg":"fileTransfer: Close: file transfer manager closed"}
+{"time":"2025-12-11T11:24:51.6212901+01:00","level":"INFO","msg":"handler: operation stats","stats":{}}
+{"time":"2025-12-11T11:24:51.6329911+01:00","level":"INFO","msg":"stream: closing","id":"hzh357n3"}
+{"time":"2025-12-11T11:24:51.6329911+01:00","level":"INFO","msg":"handler: closed","stream_id":"hzh357n3"}
+{"time":"2025-12-11T11:24:51.6335425+01:00","level":"INFO","msg":"sender: closed","stream_id":"hzh357n3"}
+{"time":"2025-12-11T11:24:51.6335425+01:00","level":"INFO","msg":"stream: closed","id":"hzh357n3"}

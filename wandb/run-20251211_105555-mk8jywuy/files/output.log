@@ -1,0 +1,6 @@
+Début de l'entraînement avec WandB...
+Market Return : 44.45%   |   Portfolio Return : -95.01%   |
+Market Return : 27.70%   |   Portfolio Return : -97.00%   |
+wandb: WARNING Linked 1 file into the W&B run directory (hardlinks); call wandb.save again to sync new files.
+Market Return : 904.05%   |   Portfolio Return : -100.00%   |
+Market Return : 39.94%   |   Portfolio Return : -77.18%   |

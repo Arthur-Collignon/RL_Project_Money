@@ -1,0 +1,39 @@
+2025-12-18 17:37:53,260 INFO    MainThread:26212 [wandb_setup.py:_flush():80] Current SDK version is 0.23.1
+2025-12-18 17:37:53,260 INFO    MainThread:26212 [wandb_setup.py:_flush():80] Configure stats pid to 26212
+2025-12-18 17:37:53,261 INFO    MainThread:26212 [wandb_setup.py:_flush():80] Loading settings from C:\Users\arthu\.config\wandb\settings
+2025-12-18 17:37:53,261 INFO    MainThread:26212 [wandb_setup.py:_flush():80] Loading settings from C:\Users\arthu\Work\CPE\S9\ReinforcementLearning\Projet\wandb\settings
+2025-12-18 17:37:53,261 INFO    MainThread:26212 [wandb_setup.py:_flush():80] Loading settings from environment variables
+2025-12-18 17:37:53,261 INFO    MainThread:26212 [wandb_init.py:setup_run_log_directory():714] Logging user logs to C:\Users\arthu\Work\CPE\S9\ReinforcementLearning\Projet\wandb\run-20251218_173753-49kat09e\logs\debug.log
+2025-12-18 17:37:53,262 INFO    MainThread:26212 [wandb_init.py:setup_run_log_directory():715] Logging internal logs to C:\Users\arthu\Work\CPE\S9\ReinforcementLearning\Projet\wandb\run-20251218_173753-49kat09e\logs\debug-internal.log
+2025-12-18 17:37:53,262 INFO    MainThread:26212 [wandb_init.py:monkeypatch_ipython():633] configuring jupyter hooks <wandb.sdk.wandb_init._WandbInit object at 0x00000255F93638C0>
+2025-12-18 17:37:53,289 INFO    MainThread:26212 [wandb_init.py:init():841] calling init triggers
+2025-12-18 17:37:53,289 INFO    MainThread:26212 [wandb_init.py:init():846] wandb.init called with sweep_config: {}
+config: {'policy_type': 'MlpPolicy', 'total_timesteps': 200000, 'learning_rate': 0.0003, 'ent_coef': 0.02, 'batch_size': 128, 'positions': [-0.5, 0, 0.25, 0.5, 0.75, 1.0, 1.25, 1.5], 'project_name': 'RL-Trading-Project', '_wandb': {'code_path': 'code/projet.ipynb'}}
+2025-12-18 17:37:53,289 INFO    MainThread:26212 [wandb_init.py:init():889] starting backend
+2025-12-18 17:37:56,117 INFO    MainThread:26212 [wandb_init.py:init():892] sending inform_init request
+2025-12-18 17:37:56,195 INFO    MainThread:26212 [wandb_init.py:init():900] backend started and connected
+2025-12-18 17:37:56,199 INFO    MainThread:26212 [wandb_run.py:_label_probe_notebook():1334] probe notebook
+2025-12-18 17:37:56,201 INFO    MainThread:26212 [wandb_run.py:_label_probe_notebook():1344] Unable to probe notebook: 'charmap' codec can't decode byte 0x8f in position 25807: character maps to <undefined>
+2025-12-18 17:37:56,201 INFO    MainThread:26212 [wandb_init.py:init():970] updated telemetry
+2025-12-18 17:37:56,995 INFO    MainThread:26212 [wandb_init.py:init():994] communicating run to backend with 90.0 second timeout
+2025-12-18 17:37:57,338 INFO    MainThread:26212 [wandb_init.py:init():1041] starting run threads in backend
+2025-12-18 17:37:57,726 INFO    MainThread:26212 [wandb_run.py:_console_start():2521] atexit reg
+2025-12-18 17:37:57,727 INFO    MainThread:26212 [wandb_run.py:_redirect():2369] redirect: wrap_raw
+2025-12-18 17:37:57,727 INFO    MainThread:26212 [wandb_run.py:_redirect():2438] Wrapping output streams.
+2025-12-18 17:37:57,727 INFO    MainThread:26212 [wandb_run.py:_redirect():2461] Redirects installed.
+2025-12-18 17:37:57,746 INFO    MainThread:26212 [wandb_init.py:init():1081] run started, returning control to user process
+2025-12-18 17:37:57,812 INFO    MainThread:26212 [wandb_run.py:_tensorboard_callback():1607] tensorboard callback: runs/49kat09e\PPO_1, True
+2025-12-18 17:37:57,823 INFO    MainThread:26212 [wandb_watch.py:_watch():68] Watching
+2025-12-18 17:37:57,826 INFO    MainThread:26212 [wandb_run.py:_config_callback():1396] config_cb None None {'algo': 'PPO', 'policy_class': "<class 'stable_baselines3.common.policies.ActorCriticPolicy'>", 'device': 'cpu', 'verbose': 1, 'policy_kwargs': '{}', 'num_timesteps': 0, '_total_timesteps': 200000, '_num_timesteps_at_start': 0, 'seed': 'None', 'action_noise': 'None', 'start_time': 1766075877789138600, 'tensorboard_log': 'runs/49kat09e', '_last_obs': '[[-0.00110956  0.6182787   0.34673142  0.91572744  0.91572744]]', '_last_episode_starts': '[ True]', '_last_original_obs': 'None', '_episode_num': 0, 'use_sde': 'False', 'sde_sample_freq': -1, '_current_progress_remaining': 1.0, '_stats_window_size': 100, 'ep_info_buffer': 'deque([], maxlen=100)', 'ep_success_buffer': 'deque([], maxlen=100)', '_n_updates': 0, '_custom_logger': 'False', 'env': '<stable_baselines3.common.vec_env.dummy_vec_env.DummyVecEnv object at 0x00000255FBE82490>', '_vec_normalize_env': 'None', 'observation_space': 'Box(-inf, inf, (5,), float32)', 'action_space': 'Discrete(8)', 'n_envs': 1, 'n_steps': 2048, 'gamma': 0.99, 'gae_lambda': 0.95, 'vf_coef': 0.5, 'max_grad_norm': 0.5, 'rollout_buffer_class': "<class 'stable_baselines3.common.buffers.RolloutBuffer'>", 'rollout_buffer_kwargs': '{}', 'n_epochs': 10, 'clip_range': 'FloatSchedule(ConstantSchedule(val=0.2))', 'clip_range_vf': 'None', 'normalize_advantage': 'True', 'target_kl': 'None', 'lr_schedule': 'FloatSchedule(ConstantSchedule(val=0.0003))', 'rollout_buffer': '<stable_baselines3.common.buffers.RolloutBuffer object at 0x00000255FBE82C10>', 'policy': 'ActorCriticPolicy(\n  (features_extractor): FlattenExtractor(\n    (flatten): Flatten(start_dim=1, end_dim=-1)\n  )\n  (pi_features_extractor): FlattenExtractor(\n    (flatten): Flatten(start_dim=1, end_dim=-1)\n  )\n  (vf_features_extractor): FlattenExtractor(\n    (flatten): Flatten(start_dim=1, end_dim=-1)\n  )\n  (mlp_extractor): MlpExtractor(\n    (policy_net): Sequential(\n      (0): Linear(in_features=5, out_features=64, bias=True)\n      (1): Tanh()\n      (2): Linear(in_features=64, out_features=64, bias=True)\n      (3): Tanh()\n    )\n    (value_net): Sequential(\n      (0): Linear(in_features=5, out_features=64, bias=True)\n      (1): Tanh()\n      (2): Linear(in_features=64, out_features=64, bias=True)\n      (3): Tanh()\n    )\n  )\n  (action_net): Linear(in_features=64, out_features=8, bias=True)\n  (value_net): Linear(in_features=64, out_features=1, bias=True)\n)', '_logger': '<stable_baselines3.common.logger.Logger object at 0x00000255EDB12490>'}
+2025-12-18 17:43:07,677 INFO    MainThread:26212 [sb3.py:save_model():147] [no run ID] Saving model checkpoint to models/49kat09e\model.zip
+2025-12-18 17:43:09,512 INFO    MainThread:26212 [wandb_run.py:_finish():2287] finishing run arthur-collignon-cpe-lyon/RL-Trading-Project/49kat09e
+2025-12-18 17:43:09,571 INFO    MainThread:26212 [jupyter.py:save_history():464] saving 22 cells to _session_history.ipynb
+2025-12-18 17:43:09,572 INFO    MainThread:26212 [wandb_run.py:_config_callback():1396] config_cb ('_wandb', 'session_history') code\_session_history.ipynb None
+2025-12-18 17:43:09,580 INFO    MainThread:26212 [jupyter.py:_save_ipynb():371] looking for notebook: projet.ipynb
+2025-12-18 17:43:11,464 INFO    MainThread:26212 [wandb_run.py:_config_callback():1396] config_cb None None {'_wandb': {'code_path': 'source-RL-Trading-Project-projet.ipynb'}}
+2025-12-18 17:43:11,465 INFO    MainThread:26212 [wandb_init.py:_jupyter_teardown():617] saved code and history: <Artifact source-RL-Trading-Project-projet.ipynb>
+2025-12-18 17:43:11,466 INFO    MainThread:26212 [wandb_init.py:_jupyter_teardown():618] cleaning up jupyter logic
+2025-12-18 17:43:11,466 INFO    MainThread:26212 [wandb_run.py:_atexit_cleanup():2486] got exitcode: 0
+2025-12-18 17:43:11,466 INFO    MainThread:26212 [wandb_run.py:_restore():2468] restore
+2025-12-18 17:43:11,466 INFO    MainThread:26212 [wandb_run.py:_restore():2474] restore done
+2025-12-18 17:43:15,148 INFO    MainThread:26212 [wandb_run.py:_footer_sync_info():3862] logging synced files
